@@ -25,10 +25,12 @@ import tensorflow.contrib.slim as slim
 # I have chosen to use the 15-day MA since we are trading on a medium term
 # and it will be more responsive to short/medium term changes in the market than say a 90-day MA.
 
-# this is the imported data for our 24 stocks (the 30-day MA for 90 days).
+# this is the imported data for our 24 stocks (the 15-day MA for 90 days).
 
 numStocks = 24
-data = tf.Variable( tf.zeros( numStocks, 90 ), tf.float32, name='data' ) 
+data = tf.Variable( tf.zeros( numStocks, 90 ), tf.float32, name='data' )  # this shows the shape of data
+data = import15MAData() # Get the actual data
+
 
 # Randomly rearrange the data.
 # This function must also keep the association of labels.
@@ -37,12 +39,6 @@ data = randomizeBySlice(data)
 # This normalizes all the data points so that they are between 0 and 1.  
 # Each row in the tensor sums to 1
 data = softmax( data )
-
-# Now we furthur randomize the data.
-# This is also to ensure that the centroids are not all clustered together.
-offset = tf.random_uniform( [90], minval=0.5, maxval=1.5, tf.float32)
-data = tf.multiply( data, offset ) 
-
 
 
 ################################
@@ -74,6 +70,13 @@ for i in range(k):
     tf.scatter_update( centroids, indices=[i], updates=cur_centroid)
 
 
+# Now we want to apply a random offset to all the centroids to ensure they are not
+#   clustered too close together.
+offset = tf.random_uniform( [k, 90], minval=0.5, maxval=1.5, tf.float32)
+data = tf.multiply( data, offset ) # multiply the tensors element wise.
+
+
+
 ################################
 # Now that we have our centroids,
 # we can simply use k-means clustering to group the stocks.
@@ -101,7 +104,7 @@ def update_centroids( stocks, nearest_indices, centroids ):
 
 nearest_indices = tf.Variable( tf.zeros( numStocks) )
 numIterations = 1000
-for iter in range(numIterations):
+for i in range(numIterations):
     nearest_indices = assign_to_nearest(data)
     centroids = update_centroids( data, nearest_indices, centroids)
 
@@ -188,10 +191,10 @@ def getPairSignal( stock, group ):
     return "hold"
 
 
-# We define a threshhold value.  If the magnitude of the momentum is greater than
+# We define a threshold value.  If the magnitude of the momentum is greater than
 #   this value and the corresponding signal from the pair trading modification
 #   is consistant with the momentum, we will cancel the signal.
-threshhold = 5
+threshold = 5
 
 
 # This returns the final signal for a specific stock at a given point in time.
@@ -201,7 +204,7 @@ def getFinalSignal( stock, group ):
     pairSignal = getPairSignal( stock, group )
     finalSignal = "hold"
     
-    if( abs(momentum) > threshhold ):
+    if( abs(momentum) > threshold ):
         if(momentum <= 0): # If there is a downward trend in the group
             if(pairSignal == "Buy Long"):
                 # this is when the price of a stock drops below the average,
@@ -223,7 +226,7 @@ def getFinalSignal( stock, group ):
                 finalSignal = pairSignal
                 
     else: 
-        # this is when the momentum is not greater than the threshhold.
+        # this is when the momentum is not greater than the threshold.
         # ie. It is acceptable to base signals just off of the modified
         #   pair trading strategy.
         finalSignal = pairSignal
@@ -264,9 +267,9 @@ def getAllActions( stocks, groups ):
     - Where the intersections are and the timeframes we use will greatly affect
         what we calculate the group momentum to be.
     - Optimizing this will improve the group momentum determination and allow
-        us to produce better signals as a result
+        us to produce better signals as a result.
         
-- Optimize our momentum threshhold value.
+- Optimize our momentum threshold value.
     - This will reduce the risk of performing an action based off of the mean reversion
         strategy that will not return to its expected value.
         
@@ -302,8 +305,19 @@ def getAllActions( stocks, groups ):
 
 - Issues may arise from having varied data.
     - For example, if we have some high volatility stocks and then some very
-        low volitility stocks, we may find that we our threshhold for momentum
+        low volitility stocks, we may find that we our threshold for momentum
         is suitable for one and not the other.
+
+- My "pair trading" strategy with groups may be flawed.  One could perhaps assume that because
+    the clusters are cointegrated, that the other companies are substitutes
+    for the current stock and it does allow one to perform the inverse action
+    on the other stocks in the group, therefore remaining market neutral. However,
+    I think that this may not be the best approach for a few reasons:
+    1. The fees for buying many stocks against only one may be detrimental.
+    2. How do you choose which other stocks in the group to invest in? An then,
+        if we are not investing in all of the other stocks, why do not just use normal
+        pair trading?
+
 
 
 
