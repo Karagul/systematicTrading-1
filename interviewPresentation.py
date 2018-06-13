@@ -50,6 +50,7 @@ data = softmax( data )
 #   - we are assuming that we've determined the optimal number of groups for this data something
 #       is 4.
 
+
 k = 4 # the number of groups.
 
 # This contains the centroids for the k clusters
@@ -268,6 +269,9 @@ def getAllActions( stocks, groups ):
         what we calculate the group momentum to be.
     - Optimizing this will improve the group momentum determination and allow
         us to produce better signals as a result.
+    ##### FEEDBACK:
+    - I can address this issue using heirarchical clustering as it does not require 
+        specifying the number of clusters.
         
 - Optimize our momentum threshold value.
     - This will reduce the risk of performing an action based off of the mean reversion
@@ -317,6 +321,18 @@ def getAllActions( stocks, groups ):
     2. How do you choose which other stocks in the group to invest in? An then,
         if we are not investing in all of the other stocks, why do not just use normal
         pair trading?
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
